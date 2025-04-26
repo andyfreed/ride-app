@@ -50,9 +50,13 @@ const MapPage = () => {
   
   const { toast } = useToast();
 
-  // Initialize by getting current position
+  // Initialize by getting current position with iOS optimizations
   useEffect(() => {
     if (navigator.geolocation) {
+      // Check if this is an iOS device
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      console.log("Device detection: iOS device =", isIOS);
+      
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, altitude, speed, heading, accuracy, altitudeAccuracy } = position.coords;
@@ -68,6 +72,9 @@ const MapPage = () => {
           };
           setCurrentPosition(newPosition);
           updateGpsStatus(accuracy || 0);
+          
+          // Log GPS information for debugging on iOS
+          console.log(`Initial GPS data: Accuracy: ${accuracy}m, Lat: ${latitude}, Lng: ${longitude}`);
         },
         (error) => {
           console.error("Error getting current position:", error);
@@ -79,9 +86,10 @@ const MapPage = () => {
           setGpsStatus('none');
         },
         {
+          // On iOS, use slightly different settings
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
+          timeout: isIOS ? 15000 : 10000, // Longer timeout for iOS
+          maximumAge: isIOS ? 2000 : 0  // Allow slightly cached positions on iOS
         }
       );
     }
@@ -118,13 +126,28 @@ const MapPage = () => {
       return;
     }
 
-    // Initialize tracker
+    // Check if this is an iOS device
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    
+    // Initialize tracker with iOS-specific optimizations
     trackerRef.current = new GPSTracker({
       highAccuracy: settings.gpsAccuracy === 'high',
       onPositionUpdate: handlePositionUpdate,
       onError: handleGpsError,
-      pauseBetweenUpdates: settings.gpsAccuracy === 'low' ? 5000 : 
-                         settings.gpsAccuracy === 'medium' ? 2000 : 1000
+      // Adjust update frequency based on accuracy setting and device type
+      pauseBetweenUpdates: isIOS 
+        ? (settings.gpsAccuracy === 'low' ? 8000 : 
+           settings.gpsAccuracy === 'medium' ? 3000 : 2000)
+        : (settings.gpsAccuracy === 'low' ? 5000 : 
+           settings.gpsAccuracy === 'medium' ? 2000 : 1000),
+      // iOS-specific optimizations
+      isAppleDevice: isIOS,
+      // Minimum distance between points to record (in meters)
+      minDistance: isIOS ? 5 : 2,
+      // Allow slightly cached positions on iOS to save battery
+      maximumAge: isIOS ? 2000 : 0,
+      // Longer timeout for iOS
+      timeout: isIOS ? 15000 : 10000
     });
 
     // Start tracking
