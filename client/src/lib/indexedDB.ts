@@ -8,9 +8,27 @@ const DB_VERSION = 1;
 const RIDES_STORE = "rides";
 const SETTINGS_STORE = "settings";
 
+// Track if IndexedDB is ready
+export let isIndexedDBReady = false;
+
 // Open and initialize the database
 // Create a single database connection that can be reused
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+// Initialize DB immediately on load
+(function initializeDB() {
+  // Start the DB initialization process right away
+  try {
+    openDB().then(() => {
+      isIndexedDBReady = true;
+      console.log("IndexedDB initialized successfully");
+    }).catch(err => {
+      console.error("Failed to initialize IndexedDB:", err);
+    });
+  } catch (err) {
+    console.error("Error during IndexedDB initialization:", err);
+  }
+})();
 
 function openDB(): Promise<IDBDatabase> {
   // If we already have a db connection promise, return it
@@ -30,7 +48,7 @@ function openDB(): Promise<IDBDatabase> {
     request.onerror = (event) => {
       console.error("Error opening database:", request.error);
       dbPromise = null; // Reset so we can try again
-      reject("Error opening database: " + request.error?.message || "Unknown error");
+      reject("Error opening database: " + (request.error?.message || "Unknown error"));
     };
 
     request.onsuccess = (event) => {
@@ -40,6 +58,9 @@ function openDB(): Promise<IDBDatabase> {
       db.onerror = (event) => {
         console.error("Database error:", (event.target as any).error);
       };
+      
+      // Mark DB as ready
+      isIndexedDBReady = true;
       
       resolve(db);
     };

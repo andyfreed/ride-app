@@ -295,66 +295,86 @@ const MapPage = () => {
   const confirmStopRide = async () => {
     if (!trackerRef.current) return;
     
-    // Get final coordinates
-    const finalCoordinates = trackerRef.current.getCoordinates();
-    
-    // Stop tracking
-    trackerRef.current.stopTracking();
-    
-    // Clear timer
-    if (durationTimerRef.current) {
-      window.clearInterval(durationTimerRef.current);
-      durationTimerRef.current = null;
-    }
-    
-    // Calculate ride stats
-    const endTime = Date.now();
-    
-    // Save ride data
-    if (finalCoordinates.length > 0) {
-      const title = `Ride on ${new Date().toLocaleDateString()}`;
+    try {
+      // Get final coordinates
+      const finalCoordinates = trackerRef.current.getCoordinates();
       
-      const savedRide = await saveRide({
-        title,
-        description: "",
-        distance: distance.toString(), // Convert to string for numeric type
-        duration,
-        startTime: new Date(startTime),
-        endTime: new Date(endTime),
-        maxSpeed: maxSpeed.toString(), // Convert to string for numeric type
-        avgSpeed: (distance / (duration > 0 ? duration : 1)).toString(), // Convert to string for numeric type
-        userId: null, // No user ID for local rides
-        elevationGain: "0", // Default elevation gain
-        route: finalCoordinates.map(coord => ({
-          latitude: coord.latitude,
-          longitude: coord.longitude,
-          timestamp: coord.timestamp,
-          altitude: coord.altitude !== null ? coord.altitude : undefined,
-          speed: coord.speed !== null ? coord.speed : undefined,
-          heading: coord.heading !== null ? coord.heading : undefined,
-          accuracy: coord.accuracy !== null ? coord.accuracy : undefined,
-          altitudeAccuracy: coord.altitudeAccuracy !== null ? coord.altitudeAccuracy : undefined
-        })),
-        startLocation: "Starting point",
-        endLocation: "Ending point"
-      });
+      // Stop tracking
+      trackerRef.current.stopTracking();
       
+      // Clear timer
+      if (durationTimerRef.current) {
+        window.clearInterval(durationTimerRef.current);
+        durationTimerRef.current = null;
+      }
+      
+      // Calculate ride stats
+      const endTime = Date.now();
+      
+      // Save ride data
+      if (finalCoordinates.length > 0) {
+        const title = `Ride on ${new Date().toLocaleDateString()}`;
+        
+        try {
+          const savedRide = await saveRide({
+            title,
+            description: "",
+            distance: distance.toString(), // Convert to string for numeric type
+            duration,
+            startTime: new Date(startTime),
+            endTime: new Date(endTime),
+            maxSpeed: maxSpeed.toString(), // Convert to string for numeric type
+            avgSpeed: (distance / (duration > 0 ? duration : 1)).toString(), // Convert to string for numeric type
+            userId: null, // No user ID for local rides
+            elevationGain: "0", // Default elevation gain
+            route: finalCoordinates.map(coord => ({
+              latitude: coord.latitude,
+              longitude: coord.longitude,
+              timestamp: coord.timestamp,
+              altitude: coord.altitude !== null ? coord.altitude : undefined,
+              speed: coord.speed !== null ? coord.speed : undefined,
+              heading: coord.heading !== null ? coord.heading : undefined,
+              accuracy: coord.accuracy !== null ? coord.accuracy : undefined,
+              altitudeAccuracy: coord.altitudeAccuracy !== null ? coord.altitudeAccuracy : undefined
+            })),
+            startLocation: "Starting point",
+            endLocation: "Ending point"
+          });
+          
+          toast({
+            title: "Ride Saved",
+            description: `Your ${formatDistance(distance)} ride has been saved`
+          });
+          
+          console.log("Ride saved successfully:", savedRide);
+        } catch (saveError) {
+          console.error("Error saving ride:", saveError);
+          toast({
+            title: "Error Saving Ride",
+            description: "There was a problem saving your ride data. Please try again.",
+            variant: "destructive"
+          });
+        }
+      } else {
+        toast({
+          title: "Ride Not Saved",
+          description: "No GPS data was recorded for this ride",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error("Error in confirmStopRide:", error);
       toast({
-        title: "Ride Saved",
-        description: `Your ${formatDistance(distance)} ride has been saved`
-      });
-    } else {
-      toast({
-        title: "Ride Not Saved",
-        description: "No GPS data was recorded for this ride",
+        title: "Error",
+        description: "There was a problem ending your ride. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      // Always reset state even if there was an error
+      setIsRecording(false);
+      setIsPaused(false);
+      setShowStopDialog(false);
     }
-    
-    // Reset state
-    setIsRecording(false);
-    setIsPaused(false);
-    setShowStopDialog(false);
   };
 
   // Format distance based on settings

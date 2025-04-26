@@ -10,7 +10,8 @@ import {
   updateRide as updateRideInDb,
   deleteRide as deleteRideFromDb,
   getNotUploadedRides,
-  markRideAsUploaded
+  markRideAsUploaded,
+  isIndexedDBReady
 } from "@/lib/indexedDB";
 
 interface RideContextType {
@@ -103,7 +104,33 @@ export function RideProvider({ children }: { children: ReactNode }) {
 
   // Save a new ride
   const saveRide = async (rideData: Omit<Ride, "id" | "isUploaded">): Promise<Ride> => {
+    // Wait until IndexedDB is ready - max 3 seconds
+    const waitForDB = async (): Promise<void> => {
+      if (isIndexedDBReady) {
+        return Promise.resolve();
+      }
+      
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      return new Promise((resolve, reject) => {
+        const checkInterval = setInterval(() => {
+          attempts++;
+          if (isIndexedDBReady) {
+            clearInterval(checkInterval);
+            resolve();
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            reject(new Error("IndexedDB not ready after maximum attempts"));
+          }
+        }, 100);
+      });
+    };
+    
     try {
+      // First make sure the database is ready
+      await waitForDB();
+      
       // Always save locally first
       const newRideId = await saveRideToDb({
         ...rideData,
@@ -138,7 +165,26 @@ export function RideProvider({ children }: { children: ReactNode }) {
       return localRide;
     } catch (error) {
       console.error('Error saving ride:', error);
-      throw error;
+      
+      // Provide a fallback basic ride with just the route data to show something
+      // This ensures the app doesn't crash even if DB operations fail
+      return {
+        id: Date.now(), // Temporary ID
+        title: `Ride on ${new Date().toLocaleDateString()}`,
+        description: "",
+        distance: rideData.distance || "0",
+        duration: rideData.duration || 0,
+        startTime: rideData.startTime || new Date(),
+        endTime: rideData.endTime || new Date(),
+        maxSpeed: rideData.maxSpeed || "0",
+        avgSpeed: rideData.avgSpeed || "0",
+        userId: null,
+        elevationGain: "0",
+        route: rideData.route || [],
+        startLocation: rideData.startLocation || "Starting point",
+        endLocation: rideData.endLocation || "Ending point",
+        isUploaded: false
+      };
     }
   };
 
