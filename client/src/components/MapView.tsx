@@ -25,7 +25,7 @@ if (typeof window !== 'undefined') {
     document.head.appendChild(link);
   }
   
-  // Add custom CSS fixes
+  // Add custom CSS fixes for better iOS compatibility
   if (!document.getElementById('leaflet-fixes-css')) {
     const style = document.createElement('style');
     style.id = 'leaflet-fixes-css';
@@ -33,6 +33,17 @@ if (typeof window !== 'undefined') {
       .leaflet-container {
         width: 100%;
         height: 100%;
+        /* Disable iOS text selection */
+        -webkit-user-select: none;
+        user-select: none;
+        /* Improved touch handling */
+        touch-action: manipulation;
+        /* Fix for iOS scroll bouncing */
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
       }
       .map-container {
         position: relative;
@@ -40,6 +51,37 @@ if (typeof window !== 'undefined') {
         height: 100%;
         z-index: 0;
         overflow: hidden;
+      }
+      /* Make leaflet markers work better on iOS */
+      .leaflet-marker-icon,
+      .leaflet-marker-shadow {
+        -webkit-backface-visibility: hidden;
+      }
+      /* Make leaflet control buttons larger for touch */
+      .leaflet-touch .leaflet-control-zoom-in,
+      .leaflet-touch .leaflet-control-zoom-out {
+        font-size: 22px;
+      }
+      /* Fix iOS Safari overscrolling issues */
+      .leaflet-touch .leaflet-control-layers,
+      .leaflet-touch .leaflet-bar {
+        border: 2px solid rgba(0,0,0,0.2);
+        background-clip: padding-box;
+      }
+      /* Fix for iOS momentum scrolling */
+      .map-controls {
+        touch-action: none;
+      }
+      /* Fix iOS safe area */
+      @supports(padding: max(0px)) {
+        .map-controls-bottom {
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
+          bottom: env(safe-area-inset-bottom);
+        }
+        .map-controls-top {
+          padding-top: max(12px, env(safe-area-inset-top));
+          top: env(safe-area-inset-top);
+        }
       }
     `;
     document.head.appendChild(style);
@@ -316,7 +358,7 @@ const MapView = ({
       {/* Controls overlay layer (highest layer) */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         {/* GPS Status Indicator */}
-        <div className="absolute left-4 top-4 bg-white px-3 py-1.5 rounded-full shadow-lg flex items-center pointer-events-auto">
+        <div className="absolute left-4 map-controls-top bg-white px-3 py-1.5 rounded-full shadow-lg flex items-center pointer-events-auto map-controls">
           <div className={`mr-2 ${gpsStatusColor}`}>
             <Satellite size={16} />
           </div>
@@ -325,35 +367,35 @@ const MapView = ({
           </span>
         </div>
         
-        {/* Map Controls */}
-        <div className="absolute right-4 bottom-32 flex flex-col space-y-3 pointer-events-auto">
+        {/* Map Controls - using map-controls-bottom class for iOS safe area */}
+        <div className="absolute right-4 map-controls-bottom flex flex-col space-y-3 pointer-events-auto map-controls" style={{bottom: '32px'}}>
           <button
-            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200 active:bg-gray-100"
             aria-label="Center map on location"
             onClick={handleCenterMap}
           >
-            <Crosshair size={20} className="text-blue-500" />
+            <Crosshair size={24} className="text-blue-500" />
           </button>
           <button
-            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200 active:bg-gray-100"
             aria-label="Zoom in"
             onClick={handleZoomIn}
           >
-            <ZoomIn size={20} />
+            <ZoomIn size={24} />
           </button>
           <button
-            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200 active:bg-gray-100"
             aria-label="Zoom out"
             onClick={handleZoomOut}
           >
-            <ZoomOut size={20} />
+            <ZoomOut size={24} />
           </button>
           <button
-            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200 active:bg-gray-100"
             aria-label="Change map type"
             onClick={toggleMapType}
           >
-            {mapType === 'standard' ? <Satellite size={20} /> : <Layers size={20} />}
+            {mapType === 'standard' ? <Satellite size={24} /> : <Layers size={24} />}
           </button>
         </div>
       </div>
