@@ -1,4 +1,6 @@
-import { users, type User, type InsertUser, type Ride, type InsertRide, type UpdateRide } from "@shared/schema";
+import { users, rides, type User, type InsertUser, type Ride, type InsertRide, type UpdateRide } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // User methods
@@ -14,73 +16,61 @@ export interface IStorage {
   deleteRide(id: number): Promise<boolean>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private rides: Map<number, Ride>;
-  private userIdCounter: number;
-  private rideIdCounter: number;
-
-  constructor() {
-    this.users = new Map();
-    this.rides = new Map();
-    this.userIdCounter = 1;
-    this.rideIdCounter = 1;
-  }
-
+export class DatabaseStorage implements IStorage {
   // User Methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   // Ride Methods
   async getRide(id: number): Promise<Ride | undefined> {
-    return this.rides.get(id);
+    const [ride] = await db.select().from(rides).where(eq(rides.id, id));
+    return ride || undefined;
   }
 
   async getRidesByUserId(userId: number): Promise<Ride[]> {
-    return Array.from(this.rides.values()).filter(
-      (ride) => ride.userId === userId
-    );
+    return await db.select().from(rides).where(eq(rides.userId, userId));
   }
 
   async createRide(insertRide: InsertRide): Promise<Ride> {
-    const id = this.rideIdCounter++;
-    const newRide: Ride = { 
-      ...insertRide, 
-      id,
-      isUploaded: true // Since we're storing it server-side
-    };
-    this.rides.set(id, newRide);
-    return newRide;
+    // Set isUploaded to true for server-created rides
+    const [ride] = await db
+      .insert(rides)
+      .values({ ...insertRide, isUploaded: true })
+      .returning();
+    return ride;
   }
 
   async updateRide(id: number, updateRide: UpdateRide): Promise<Ride | undefined> {
-    const ride = this.rides.get(id);
-    if (!ride) {
-      return undefined;
-    }
-    
-    const updatedRide: Ride = { ...ride, ...updateRide };
-    this.rides.set(id, updatedRide);
-    return updatedRide;
+    const [updatedRide] = await db
+      .update(rides)
+      .set(updateRide)
+      .where(eq(rides.id, id))
+      .returning();
+    return updatedRide || undefined;
   }
 
   async deleteRide(id: number): Promise<boolean> {
-    return this.rides.delete(id);
+    const result = await db
+      .delete(rides)
+      .where(eq(rides.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
