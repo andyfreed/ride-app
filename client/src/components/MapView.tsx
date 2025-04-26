@@ -36,6 +36,33 @@ const MapView = ({
   const { settings } = useSettings();
   const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
 
+  // Add custom CSS to ensure the map container is properly styled
+  useEffect(() => {
+    // Add custom CSS to fix touch issues
+    if (!document.getElementById('leaflet-custom-css')) {
+      const style = document.createElement('style');
+      style.id = 'leaflet-custom-css';
+      style.textContent = `
+        .leaflet-container {
+          touch-action: none;
+          height: 100%;
+          width: 100%;
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+        }
+        .leaflet-touch .leaflet-control-layers,
+        .leaflet-touch .leaflet-bar {
+          border: 2px solid rgba(0,0,0,0.2);
+          border-radius: 4px;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
   // Initialize the map
   useEffect(() => {
     // Clean up any existing map instance to prevent duplicates
@@ -54,6 +81,14 @@ const MapView = ({
       link.rel = 'stylesheet';
       link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
       document.head.appendChild(link);
+    }
+    
+    // Add meta viewport tag for proper touch handling if not present
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const meta = document.createElement('meta');
+      meta.name = 'viewport';
+      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+      document.head.appendChild(meta);
     }
     
     const L = window.L;
@@ -88,7 +123,10 @@ const MapView = ({
         center: [37.7749, -122.4194], // Default: San Francisco
         zoom: 13,
         zoomControl: false,
-        attributionControl: false
+        attributionControl: false,
+        dragging: true,
+        tap: true,
+        scrollWheelZoom: true
       });
       
       // Set map type based on settings
@@ -220,9 +258,38 @@ const MapView = ({
     setMapType(prev => prev === 'standard' ? 'satellite' : 'standard');
   };
 
+  // Add additional event handlers to ensure map is interactive
+  useEffect(() => {
+    if (!mapContainerRef.current || !mapRef.current) return;
+    
+    // Add touch event handler
+    const mapContainer = mapContainerRef.current;
+    
+    // Explicitly disable touch events from being handled by the browser
+    const preventDefault = (e: Event) => {
+      e.preventDefault();
+    };
+    
+    mapContainer.addEventListener('touchstart', preventDefault, { passive: false });
+    mapContainer.addEventListener('touchmove', preventDefault, { passive: false });
+    
+    return () => {
+      mapContainer.removeEventListener('touchstart', preventDefault);
+      mapContainer.removeEventListener('touchmove', preventDefault);
+    };
+  }, [mapRef.current]);
+
   return (
     <div className="absolute inset-0 bg-neutral-200 h-full w-full">
-      <div ref={mapContainerRef} className="w-full h-full"></div>
+      <div 
+        ref={mapContainerRef} 
+        className="w-full h-full touch-none" 
+        style={{ 
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none'
+        }}
+      ></div>
       
       {/* GPS Status Indicator */}
       <div className="absolute left-4 top-4 bg-white/90 px-3 py-1.5 rounded-full shadow-md flex items-center">
