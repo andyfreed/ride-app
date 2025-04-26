@@ -103,18 +103,26 @@ const MapView = ({
       try {
         const L = window.L;
         
-        // Create the map
+        // Force clear any previous instance that might still be attached
+        if (mapContainerRef.current.hasChildNodes()) {
+          mapContainerRef.current.innerHTML = '';
+        }
+            
+        // Create the map with all interactive features enabled
         mapRef.current = L.map(mapContainerRef.current, {
           center: [37.7749, -122.4194], // Default: San Francisco
           zoom: 13,
-          zoomControl: false,
-          attributionControl: false,
-          dragging: true,
-          tap: true,
-          touchZoom: true,
-          doubleClickZoom: true,
-          scrollWheelZoom: true,
-          keyboard: false
+          zoomControl: false,           // We'll add our own zoom controls
+          attributionControl: false,    // Hide attribution for cleaner UI
+          dragging: true,               // Enable map dragging
+          tap: true,                    // Enable tap for mobile
+          touchZoom: true,              // Enable pinch zoom on mobile
+          doubleClickZoom: true,        // Enable double click zoom
+          scrollWheelZoom: true,        // Enable mouse wheel zoom
+          keyboard: false,              // Disable keyboard navigation
+          inertia: true,                // Enable inertia panning for smoother dragging
+          fadeAnimation: true,          // Smooth fade animations
+          zoomAnimation: true          // Smooth zoom animations
         });
         
         // Add a tile layer
@@ -295,56 +303,59 @@ const MapView = ({
   };
 
   return (
-    <div className="relative flex flex-col h-full w-full bg-gray-100 overflow-hidden">
-      {/* Map container */}
-      <div className="flex-1 relative overflow-hidden">
+    <div className="relative h-full w-full bg-gray-100 overflow-hidden">
+      {/* Map container (lowest layer) */}
+      <div className="absolute inset-0 z-0">
         <div 
           id="map" 
           ref={mapContainerRef} 
-          className="h-full w-full absolute inset-0"
-        ></div>
+          className="h-full w-full"
+        />
       </div>
       
-      {/* GPS Status Indicator */}
-      <div className="absolute left-4 top-4 bg-white/90 px-3 py-1.5 rounded-full shadow-md flex items-center z-10">
-        <div className={`mr-2 ${gpsStatusColor}`}>
-          <Satellite size={16} />
+      {/* Controls overlay layer (highest layer) */}
+      <div className="absolute inset-0 z-20 pointer-events-none">
+        {/* GPS Status Indicator */}
+        <div className="absolute left-4 top-4 bg-white px-3 py-1.5 rounded-full shadow-lg flex items-center pointer-events-auto">
+          <div className={`mr-2 ${gpsStatusColor}`}>
+            <Satellite size={16} />
+          </div>
+          <span className="text-xs font-medium">
+            GPS Signal: {gpsStatus === 'strong' ? 'Strong' : gpsStatus === 'weak' ? 'Weak' : 'Unavailable'}
+          </span>
         </div>
-        <span className="text-xs font-medium">
-          GPS Signal: {gpsStatus === 'strong' ? 'Strong' : gpsStatus === 'weak' ? 'Weak' : 'Unavailable'}
-        </span>
-      </div>
-      
-      {/* Map Controls */}
-      <div className="absolute right-4 bottom-32 flex flex-col space-y-2 z-10">
-        <button
-          className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
-          aria-label="Center map on location"
-          onClick={handleCenterMap}
-        >
-          <Crosshair size={18} className="text-blue-500" />
-        </button>
-        <button
-          className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
-          aria-label="Zoom in"
-          onClick={handleZoomIn}
-        >
-          <ZoomIn size={18} />
-        </button>
-        <button
-          className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
-          aria-label="Zoom out"
-          onClick={handleZoomOut}
-        >
-          <ZoomOut size={18} />
-        </button>
-        <button
-          className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
-          aria-label="Change map type"
-          onClick={toggleMapType}
-        >
-          {mapType === 'standard' ? <Satellite size={18} /> : <Layers size={18} />}
-        </button>
+        
+        {/* Map Controls */}
+        <div className="absolute right-4 bottom-32 flex flex-col space-y-3 pointer-events-auto">
+          <button
+            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            aria-label="Center map on location"
+            onClick={handleCenterMap}
+          >
+            <Crosshair size={20} className="text-blue-500" />
+          </button>
+          <button
+            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            aria-label="Zoom in"
+            onClick={handleZoomIn}
+          >
+            <ZoomIn size={20} />
+          </button>
+          <button
+            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            aria-label="Zoom out"
+            onClick={handleZoomOut}
+          >
+            <ZoomOut size={20} />
+          </button>
+          <button
+            className="w-12 h-12 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500 border border-gray-200"
+            aria-label="Change map type"
+            onClick={toggleMapType}
+          >
+            {mapType === 'standard' ? <Satellite size={20} /> : <Layers size={20} />}
+          </button>
+        </div>
       </div>
     </div>
   );
