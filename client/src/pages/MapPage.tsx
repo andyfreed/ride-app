@@ -75,6 +75,13 @@ const MapPage = () => {
           
           // Log GPS information for debugging on iOS
           console.log(`Initial GPS data: Accuracy: ${accuracy}m, Lat: ${latitude}, Lng: ${longitude}`);
+          
+          // Show a visible toast for GPS acquisition success
+          toast({
+            title: "GPS Signal Acquired",
+            description: `Location found with ${accuracy.toFixed(1)}m accuracy`,
+            variant: "default"
+          });
         },
         (error) => {
           console.error("Error getting current position:", error);
