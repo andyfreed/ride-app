@@ -111,14 +111,36 @@ const MapPage = () => {
     };
   }, []);
 
-  // Update GPS status based on accuracy
+  // Update GPS status based on accuracy with more lenient thresholds for desktop
   const updateGpsStatus = (accuracy: number) => {
-    if (accuracy <= 10) {
-      setGpsStatus('strong');
-    } else if (accuracy <= 30) {
-      setGpsStatus('weak');
+    // Check if device is iOS to use different thresholds
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    // More lenient thresholds for desktop browsers
+    if (isMobile) {
+      // Mobile thresholds (stricter)
+      if (accuracy <= 15) {
+        setGpsStatus('strong');
+      } else if (accuracy <= 40) {
+        setGpsStatus('weak');
+      } else {
+        setGpsStatus('none');
+      }
     } else {
-      setGpsStatus('none');
+      // Desktop thresholds (more lenient)
+      if (accuracy <= 30) {
+        setGpsStatus('strong');
+      } else if (accuracy <= 100) {
+        setGpsStatus('weak');
+      } else {
+        setGpsStatus('none');
+      }
+    }
+    
+    // If we have any accuracy value, we should at least show something
+    if (accuracy > 0 && gpsStatus === 'none') {
+      setGpsStatus('weak');
     }
   };
 
