@@ -265,13 +265,24 @@ const MapPage = () => {
       const savedRide = await saveRide({
         title,
         description: "",
-        distance,
+        distance: distance.toString(), // Convert to string for numeric type
         duration,
         startTime: new Date(startTime),
         endTime: new Date(endTime),
-        maxSpeed,
-        avgSpeed: distance / (duration > 0 ? duration : 1), // meters per second
-        route: finalCoordinates,
+        maxSpeed: maxSpeed.toString(), // Convert to string for numeric type
+        avgSpeed: (distance / (duration > 0 ? duration : 1)).toString(), // Convert to string for numeric type
+        userId: null, // No user ID for local rides
+        elevationGain: "0", // Default elevation gain
+        route: finalCoordinates.map(coord => ({
+          latitude: coord.latitude,
+          longitude: coord.longitude,
+          timestamp: coord.timestamp,
+          altitude: coord.altitude !== null ? coord.altitude : undefined,
+          speed: coord.speed !== null ? coord.speed : undefined,
+          heading: coord.heading !== null ? coord.heading : undefined,
+          accuracy: coord.accuracy !== null ? coord.accuracy : undefined,
+          altitudeAccuracy: coord.altitudeAccuracy !== null ? coord.altitudeAccuracy : undefined
+        })),
         startLocation: "Starting point",
         endLocation: "Ending point"
       });

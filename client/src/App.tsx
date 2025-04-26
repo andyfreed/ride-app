@@ -1,6 +1,6 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
-import { Route, Switch } from "wouter";
+import { Route, Switch, useLocation } from "wouter";
 import MapPage from "@/pages/MapPage";
 import RidesListPage from "@/pages/RidesListPage";
 import ProfilePage from "@/pages/ProfilePage";
@@ -8,7 +8,6 @@ import RideDetailsPage from "@/pages/RideDetailsPage";
 import NotFound from "@/pages/not-found";
 import TabBar from "@/components/TabBar";
 import { useEffect, useRef } from "react";
-import { useLocation } from "wouter";
 
 function App() {
   const [location, setLocation] = useLocation();
