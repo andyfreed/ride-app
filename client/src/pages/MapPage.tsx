@@ -327,8 +327,8 @@ const MapPage = () => {
 
   return (
     <>
-      <div className="h-full w-full flex flex-col">
-        <div className="flex-1 relative">
+      <div className="h-full w-full flex flex-col overflow-hidden">
+        <div className="relative flex-1 overflow-hidden">
           <MapView 
             coordinates={coordinates}
             currentPosition={currentPosition}
@@ -338,19 +338,21 @@ const MapPage = () => {
           />
         </div>
         
-        <RideControlPanel
-          isRecording={isRecording}
-          isPaused={isPaused}
-          duration={duration}
-          distance={distance}
-          currentSpeed={currentSpeed}
-          avgSpeed={distance / (duration > 0 ? duration : 1)}
-          onStart={handleStartRide}
-          onPause={handlePauseRide}
-          onResume={handleResumeRide}
-          onStop={handleStopRide}
-          onAddWaypoint={handleAddWaypoint}
-        />
+        <div className="relative z-10">
+          <RideControlPanel
+            isRecording={isRecording}
+            isPaused={isPaused}
+            duration={duration}
+            distance={distance}
+            currentSpeed={currentSpeed}
+            avgSpeed={distance / (duration > 0 ? duration : 1)}
+            onStart={handleStartRide}
+            onPause={handlePauseRide}
+            onResume={handleResumeRide}
+            onStop={handleStopRide}
+            onAddWaypoint={handleAddWaypoint}
+          />
+        </div>
       </div>
 
       <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>

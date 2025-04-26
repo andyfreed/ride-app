@@ -120,7 +120,15 @@ export interface GeolocationCoordinate {
   altitudeAccuracy?: number | null;
 }
 
-export function calculateBounds(coordinates: GeolocationCoordinate[]) {
+// Return type for calculateBounds function
+export interface CoordinateBounds {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+export function calculateBounds(coordinates: GeolocationCoordinate[]): CoordinateBounds | undefined {
   if (!coordinates.length) return undefined;
   
   let minLat = coordinates[0].latitude;
@@ -135,10 +143,12 @@ export function calculateBounds(coordinates: GeolocationCoordinate[]) {
     maxLng = Math.max(maxLng, coord.longitude);
   });
   
-  return [
-    [minLat, minLng],
-    [maxLat, maxLng]
-  ];
+  return {
+    minLat,
+    maxLat,
+    minLng,
+    maxLng
+  };
 }
 
 export function getCurrentPosition(): Promise<GeolocationPosition> {

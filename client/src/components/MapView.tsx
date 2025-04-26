@@ -12,6 +12,40 @@ declare global {
   }
 }
 
+// Inject necessary Leaflet styles once
+if (typeof window !== 'undefined') {
+  // Add Leaflet CSS to head if not already present
+  if (!document.getElementById('leaflet-css')) {
+    const link = document.createElement('link');
+    link.id = 'leaflet-css';
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+    link.crossOrigin = '';
+    document.head.appendChild(link);
+  }
+  
+  // Add custom CSS fixes
+  if (!document.getElementById('leaflet-fixes-css')) {
+    const style = document.createElement('style');
+    style.id = 'leaflet-fixes-css';
+    style.textContent = `
+      .leaflet-container {
+        width: 100%;
+        height: 100%;
+      }
+      .map-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        overflow: hidden;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
 interface MapViewProps {
   coordinates: GeolocationCoordinate[];
   currentPosition?: GeolocationCoordinate;
@@ -33,154 +67,133 @@ const MapView = ({
   const mapRef = useRef<any>(null);
   const routeLayerRef = useRef<any>(null);
   const positionMarkerRef = useRef<any>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const { settings } = useSettings();
-  const [mapType, setMapType] = useState<'standard' | 'satellite'>('standard');
+  const [mapType, setMapType] = useState<'standard' | 'satellite'>(
+    settings?.mapStyle === 'satellite' ? 'satellite' : 'standard'
+  );
 
-  // Add custom CSS to ensure the map container is properly styled
+  // Load Leaflet script once
   useEffect(() => {
-    // Add custom CSS to fix touch issues
-    if (!document.getElementById('leaflet-custom-css')) {
-      const style = document.createElement('style');
-      style.id = 'leaflet-custom-css';
-      style.textContent = `
-        .leaflet-container {
-          touch-action: none;
-          height: 100%;
-          width: 100%;
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-        }
-        .leaflet-touch .leaflet-control-layers,
-        .leaflet-touch .leaflet-bar {
-          border: 2px solid rgba(0,0,0,0.2);
-          border-radius: 4px;
-        }
-      `;
-      document.head.appendChild(style);
-    }
+    if (typeof window === 'undefined') return;
+    
+    // If Leaflet is already loaded, no need to reload
+    if (window.L) return;
+    
+    // Load Leaflet.js if not loaded yet
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=';
+    script.crossOrigin = '';
+    script.async = true;
+    
+    document.body.appendChild(script);
   }, []);
 
-  // Initialize the map
+  // Initialize the map when the container is ready and Leaflet is loaded
   useEffect(() => {
-    // Clean up any existing map instance to prevent duplicates
-    if (mapRef.current) {
-      mapRef.current.remove();
-      mapRef.current = null;
-      routeLayerRef.current = null;
-      positionMarkerRef.current = null;
-    }
+    if (!mapContainerRef.current || mapRef.current || typeof window === 'undefined') return;
     
-    if (typeof window === 'undefined' || !mapContainerRef.current) return;
-    
-    // Check if Leaflet CSS is loaded
-    if (!document.querySelector('link[href*="leaflet.css"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
-      document.head.appendChild(link);
-    }
-    
-    // Add meta viewport tag for proper touch handling if not present
-    if (!document.querySelector('meta[name="viewport"]')) {
-      const meta = document.createElement('meta');
-      meta.name = 'viewport';
-      meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
-      document.head.appendChild(meta);
-    }
-    
-    const L = window.L;
-    if (!L) {
-      // Check if script is already being loaded
-      if (!document.querySelector('script[src*="leaflet.js"]')) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
-        script.async = true;
-        script.onload = initializeMap;
-        document.body.appendChild(script);
-      } else {
-        // Wait for existing script to load
-        const checkIfLeafletLoaded = setInterval(() => {
-          if (window.L) {
-            clearInterval(checkIfLeafletLoaded);
-            initializeMap();
+    const initMap = () => {
+      if (!window.L || !mapContainerRef.current || mapRef.current) return;
+      
+      // Clear the container first
+      mapContainerRef.current.innerHTML = '';
+      
+      try {
+        const L = window.L;
+        
+        // Create the map
+        mapRef.current = L.map(mapContainerRef.current, {
+          center: [37.7749, -122.4194], // Default: San Francisco
+          zoom: 13,
+          zoomControl: false,
+          attributionControl: false,
+          dragging: true,
+          tap: true,
+          touchZoom: true,
+          doubleClickZoom: true,
+          scrollWheelZoom: true,
+          keyboard: false
+        });
+        
+        // Add a tile layer
+        if (mapType === 'standard') {
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+          }).addTo(mapRef.current);
+        } else {
+          L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+          }).addTo(mapRef.current);
+        }
+        
+        // Create a layer for the route
+        routeLayerRef.current = L.polyline([], { 
+          color: '#0057FF', 
+          weight: 5,
+          lineJoin: 'round'
+        }).addTo(mapRef.current);
+        
+        // Create a marker for current position
+        positionMarkerRef.current = L.circleMarker([0, 0], {
+          radius: 8,
+          fillColor: '#0057FF',
+          fillOpacity: 1,
+          color: '#fff',
+          weight: 2
+        }).addTo(mapRef.current);
+        
+        // Signal that map is ready
+        setMapLoaded(true);
+        if (onMapReady) onMapReady();
+        
+        // Invalidate size after a short delay to fix rendering issues
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.invalidateSize();
           }
         }, 100);
+      } catch (error) {
+        console.error('Error initializing map:', error);
       }
+    };
+
+    // Check if Leaflet is already loaded
+    if (window.L) {
+      initMap();
     } else {
-      initializeMap();
+      // Wait for Leaflet to load
+      const checkInterval = setInterval(() => {
+        if (window.L) {
+          clearInterval(checkInterval);
+          initMap();
+        }
+      }, 100);
+      
+      // Cleanup interval after 10 seconds if Leaflet doesn't load
+      setTimeout(() => clearInterval(checkInterval), 10000);
     }
-
-    function initializeMap() {
-      if (mapRef.current || !mapContainerRef.current) return;
-      
-      const L = window.L;
-      
-      // Create map instance
-      mapRef.current = L.map(mapContainerRef.current, {
-        center: [37.7749, -122.4194], // Default: San Francisco
-        zoom: 13,
-        zoomControl: false,
-        attributionControl: false,
-        dragging: true,
-        tap: true,
-        scrollWheelZoom: true
-      });
-      
-      // Set map type based on settings
-      updateTileLayer();
-      
-      // Create a layer for the route
-      routeLayerRef.current = L.polyline([], { 
-        color: '#0057FF', 
-        weight: 5,
-        lineJoin: 'round'
-      }).addTo(mapRef.current);
-      
-      // Create a marker for current position
-      positionMarkerRef.current = L.circleMarker([0, 0], {
-        radius: 8,
-        fillColor: '#0057FF',
-        fillOpacity: 1,
-        color: '#fff',
-        weight: 2
-      }).addTo(mapRef.current);
-      
-      if (onMapReady) {
-        onMapReady();
-      }
-    }
-
+    
+    // Clean up on unmount
     return () => {
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
         routeLayerRef.current = null;
         positionMarkerRef.current = null;
+        setMapLoaded(false);
       }
     };
-  }, []);
+  }, [mapContainerRef.current]);
 
-  // Update tile layer when map type changes
+  // Update map tile layer when mapType changes
   useEffect(() => {
-    updateTileLayer();
-  }, [mapType]);
-
-  // Update map settings when user settings change
-  useEffect(() => {
-    if (settings.mapStyle) {
-      setMapType(settings.mapStyle === 'standard' ? 'standard' : 'satellite');
-    }
-  }, [settings.mapStyle]);
-
-  const updateTileLayer = () => {
-    // Only attempt to update tile layer if Leaflet is loaded and map is initialized
-    const L = window?.L;
-    if (!L || !mapRef.current) return;
+    if (!mapRef.current || !window.L) return;
     
     try {
+      const L = window.L;
+      
       // Remove existing tile layers
       mapRef.current.eachLayer((layer: any) => {
         if (layer instanceof L.TileLayer) {
@@ -188,8 +201,8 @@ const MapView = ({
         }
       });
       
-      // Add appropriate tile layer
-      if (mapType === 'standard' || !mapType) {
+      // Add new tile layer based on map type
+      if (mapType === 'standard') {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
         }).addTo(mapRef.current);
@@ -199,46 +212,69 @@ const MapView = ({
         }).addTo(mapRef.current);
       }
     } catch (error) {
-      console.error('Error updating tile layer:', error);
+      console.error('Error updating map tiles:', error);
     }
-  };
+  }, [mapType]);
 
-  // Update route on the map
+  // Update route path when coordinates change
   useEffect(() => {
-    if (!mapRef.current || !routeLayerRef.current || !window.L) return;
+    if (!mapRef.current || !routeLayerRef.current || !window.L || !mapLoaded) return;
     
-    const L = window.L;
-    const latlngs = coordinates.map(coord => [coord.latitude, coord.longitude]);
-    
-    routeLayerRef.current.setLatLngs(latlngs);
-    
-    if (latlngs.length > 1 && !followPosition) {
-      // Fit the map to the route bounds
-      const bounds = calculateBounds(coordinates);
-      if (bounds) {
-        mapRef.current.fitBounds(bounds, { padding: [30, 30] });
+    try {
+      const latlngs = coordinates.map(coord => [coord.latitude, coord.longitude]);
+      routeLayerRef.current.setLatLngs(latlngs);
+      
+      if (latlngs.length > 1 && !followPosition) {
+        // Fit the map to the route bounds
+        const bounds = calculateBounds(coordinates);
+        if (bounds) {
+          // Convert bounds object to Leaflet bounds format
+          const latLngBounds = [
+            [bounds.minLat, bounds.minLng],
+            [bounds.maxLat, bounds.maxLng]
+          ] as [[number, number], [number, number]];
+          
+          mapRef.current.fitBounds(latLngBounds, { padding: [30, 30] });
+        }
       }
+    } catch (error) {
+      console.error('Error updating route:', error);
     }
-  }, [coordinates, followPosition]);
+  }, [coordinates, followPosition, mapLoaded]);
 
   // Update current position marker
   useEffect(() => {
-    if (!mapRef.current || !positionMarkerRef.current || !currentPosition) return;
+    if (!mapRef.current || !positionMarkerRef.current || !currentPosition || !mapLoaded) return;
     
-    positionMarkerRef.current.setLatLng([currentPosition.latitude, currentPosition.longitude]);
-    
-    if (followPosition) {
-      mapRef.current.setView([currentPosition.latitude, currentPosition.longitude], mapRef.current.getZoom());
+    try {
+      positionMarkerRef.current.setLatLng([currentPosition.latitude, currentPosition.longitude]);
+      
+      if (followPosition) {
+        mapRef.current.setView(
+          [currentPosition.latitude, currentPosition.longitude], 
+          mapRef.current.getZoom()
+        );
+      }
+    } catch (error) {
+      console.error('Error updating position marker:', error);
     }
-  }, [currentPosition, followPosition]);
+  }, [currentPosition, followPosition, mapLoaded]);
+
+  // Update map settings when user settings change
+  useEffect(() => {
+    if (settings?.mapStyle) {
+      setMapType(settings.mapStyle === 'standard' ? 'standard' : 'satellite');
+    }
+  }, [settings?.mapStyle]);
 
   // Define the color for GPS status
   const gpsStatusColor = gpsStatus === 'strong' 
-    ? 'text-success' 
+    ? 'text-green-500' 
     : gpsStatus === 'weak' 
-      ? 'text-warning' 
-      : 'text-destructive';
+      ? 'text-yellow-500' 
+      : 'text-red-500';
   
+  // Map control handlers
   const handleCenterMap = () => {
     if (!mapRef.current || !currentPosition) return;
     mapRef.current.setView([currentPosition.latitude, currentPosition.longitude], 15);
@@ -258,41 +294,19 @@ const MapView = ({
     setMapType(prev => prev === 'standard' ? 'satellite' : 'standard');
   };
 
-  // Add additional event handlers to ensure map is interactive
-  useEffect(() => {
-    if (!mapContainerRef.current || !mapRef.current) return;
-    
-    // Add touch event handler
-    const mapContainer = mapContainerRef.current;
-    
-    // Explicitly disable touch events from being handled by the browser
-    const preventDefault = (e: Event) => {
-      e.preventDefault();
-    };
-    
-    mapContainer.addEventListener('touchstart', preventDefault, { passive: false });
-    mapContainer.addEventListener('touchmove', preventDefault, { passive: false });
-    
-    return () => {
-      mapContainer.removeEventListener('touchstart', preventDefault);
-      mapContainer.removeEventListener('touchmove', preventDefault);
-    };
-  }, [mapRef.current]);
-
   return (
-    <div className="absolute inset-0 bg-neutral-200 h-full w-full">
-      <div 
-        ref={mapContainerRef} 
-        className="w-full h-full touch-none" 
-        style={{ 
-          touchAction: 'none',
-          userSelect: 'none',
-          WebkitUserSelect: 'none'
-        }}
-      ></div>
+    <div className="relative flex flex-col h-full w-full bg-gray-100 overflow-hidden">
+      {/* Map container */}
+      <div className="flex-1 relative overflow-hidden">
+        <div 
+          id="map" 
+          ref={mapContainerRef} 
+          className="h-full w-full absolute inset-0"
+        ></div>
+      </div>
       
       {/* GPS Status Indicator */}
-      <div className="absolute left-4 top-4 bg-white/90 px-3 py-1.5 rounded-full shadow-md flex items-center">
+      <div className="absolute left-4 top-4 bg-white/90 px-3 py-1.5 rounded-full shadow-md flex items-center z-10">
         <div className={`mr-2 ${gpsStatusColor}`}>
           <Satellite size={16} />
         </div>
@@ -302,13 +316,13 @@ const MapView = ({
       </div>
       
       {/* Map Controls */}
-      <div className="absolute right-4 bottom-32 flex flex-col space-y-2">
+      <div className="absolute right-4 bottom-32 flex flex-col space-y-2 z-10">
         <button
           className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
           aria-label="Center map on location"
           onClick={handleCenterMap}
         >
-          <Crosshair size={18} className="text-primary" />
+          <Crosshair size={18} className="text-blue-500" />
         </button>
         <button
           className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center text-neutral-500"
