@@ -38,24 +38,52 @@ const MapView = ({
 
   // Initialize the map
   useEffect(() => {
+    // Clean up any existing map instance to prevent duplicates
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
+      routeLayerRef.current = null;
+      positionMarkerRef.current = null;
+    }
+    
     if (typeof window === 'undefined' || !mapContainerRef.current) return;
+    
+    // Check if Leaflet CSS is loaded
+    if (!document.querySelector('link[href*="leaflet.css"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css';
+      document.head.appendChild(link);
+    }
     
     const L = window.L;
     if (!L) {
-      // Load Leaflet if it's not available yet
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
-      script.async = true;
-      script.onload = initializeMap;
-      document.body.appendChild(script);
+      // Check if script is already being loaded
+      if (!document.querySelector('script[src*="leaflet.js"]')) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js';
+        script.async = true;
+        script.onload = initializeMap;
+        document.body.appendChild(script);
+      } else {
+        // Wait for existing script to load
+        const checkIfLeafletLoaded = setInterval(() => {
+          if (window.L) {
+            clearInterval(checkIfLeafletLoaded);
+            initializeMap();
+          }
+        }, 100);
+      }
     } else {
       initializeMap();
     }
 
     function initializeMap() {
-      if (mapRef.current) return;
+      if (mapRef.current || !mapContainerRef.current) return;
       
       const L = window.L;
+      
+      // Create map instance
       mapRef.current = L.map(mapContainerRef.current, {
         center: [37.7749, -122.4194], // Default: San Francisco
         zoom: 13,
@@ -110,25 +138,30 @@ const MapView = ({
   }, [settings.mapStyle]);
 
   const updateTileLayer = () => {
-    const L = window.L;
+    // Only attempt to update tile layer if Leaflet is loaded and map is initialized
+    const L = window?.L;
     if (!L || !mapRef.current) return;
     
-    // Remove existing tile layers
-    mapRef.current.eachLayer((layer: any) => {
-      if (layer instanceof L.TileLayer) {
-        mapRef.current.removeLayer(layer);
+    try {
+      // Remove existing tile layers
+      mapRef.current.eachLayer((layer: any) => {
+        if (layer instanceof L.TileLayer) {
+          mapRef.current.removeLayer(layer);
+        }
+      });
+      
+      // Add appropriate tile layer
+      if (mapType === 'standard' || !mapType) {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+        }).addTo(mapRef.current);
+      } else {
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+          maxZoom: 19,
+        }).addTo(mapRef.current);
       }
-    });
-    
-    // Add appropriate tile layer
-    if (mapType === 'standard' || !mapType) {
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-      }).addTo(mapRef.current);
-    } else {
-      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-      }).addTo(mapRef.current);
+    } catch (error) {
+      console.error('Error updating tile layer:', error);
     }
   };
 

@@ -22,7 +22,20 @@ interface RideContextType {
   deleteRide: (id: number) => Promise<boolean>;
 }
 
-const RideContext = createContext<RideContextType | undefined>(undefined);
+// Initialize with default values to avoid undefined errors
+const defaultContextValue: RideContextType = {
+  rides: [],
+  loading: true,
+  getRideById: async () => null,
+  saveRide: async (data) => {
+    console.error("RideProvider not initialized");
+    throw new Error("RideProvider not initialized");
+  },
+  updateRide: async () => null,
+  deleteRide: async () => false
+};
+
+const RideContext = createContext<RideContextType>(defaultContextValue);
 
 export function RideProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -235,9 +248,5 @@ export function RideProvider({ children }: { children: ReactNode }) {
 }
 
 export function useRide() {
-  const context = useContext(RideContext);
-  if (context === undefined) {
-    throw new Error("useRide must be used within a RideProvider");
-  }
-  return context;
+  return useContext(RideContext);
 }

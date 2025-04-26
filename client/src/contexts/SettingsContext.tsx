@@ -14,7 +14,13 @@ const defaultSettings: Settings = {
   mapStyle: "standard",
 };
 
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
+// Create default context value with defaults
+const defaultContextValue: SettingsContextType = {
+  settings: defaultSettings,
+  updateSettings: async () => console.error("SettingsProvider not initialized")
+};
+
+const SettingsContext = createContext<SettingsContextType>(defaultContextValue);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -77,9 +83,5 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 }
 
 export function useSettings() {
-  const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error("useSettings must be used within a SettingsProvider");
-  }
-  return context;
+  return useContext(SettingsContext);
 }
