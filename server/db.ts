@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { drizzle } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/supabase-js';
 import * as schema from "@shared/schema";
 
 if (!process.env.VITE_SUPABASE_URL || !process.env.VITE_SUPABASE_ANON_KEY) {
